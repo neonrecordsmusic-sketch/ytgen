@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>YTGen — YouTube Title & Description Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #181818;
+    --surface3: #1f1f1f;
+    --border: rgba(255,255,255,0.07);
+    --border-hover: rgba(255,255,255,0.14);
+    --text: #f0f0f0;
+    --text-muted: #888;
+    --text-dim: #555;
+    --accent: #ff3b3b;
+    --accent-soft: rgba(255,59,59,0.12);
+    --accent-text: #ff6b6b;
+    --green: #22c55e;
+    --green-soft: rgba(34,197,94,0.12);
+    --yellow: #facc15;
+    --yellow-soft: rgba(250,204,21,0.1);
+    --blue: #3b82f6;
+    --blue-soft: rgba(59,130,246,0.12);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    background: rgba(10,10,10,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .logo-icon svg { width: 14px; height: 14px; fill: #fff; }
+
+  .header-right { display: flex; align-items: center; gap: 8px; }
+
+  .api-pill {
+    display: flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .api-pill:hover { border-color: var(--border-hover); color: var(--text); }
+  .api-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-dim); }
+  .api-pill .dot.ok { background: var(--green); }
+  .api-pill .dot.err { background: var(--accent); }
+
+  /* LAYOUT */
+  .layout {
+    display: flex;
+    height: calc(100vh - 56px);
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 1.5rem;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 0;
+    transition: color 0.15s, background 0.15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--text); background: var(--surface2); }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 2px;
+    height: 28px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .nav-item { position: relative; }
+
+  .nav-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.6; }
+  .nav-item.active .nav-icon, .nav-item:hover .nav-icon { opacity: 1; }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 1.5rem; }
+
+  /* MAIN CONTENT */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface3) transparent;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .panel-header {
+    margin-bottom: 1.75rem;
+  }
+  .panel-title {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .panel-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 3px;
+  }
+
+  /* FORM ELEMENTS */
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  input, textarea, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    font-size: 14px;
+    color: var(--text);
+    font-family: var(--font);
+    transition: border-color 0.15s;
+    outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--border-hover); }
+  input::placeholder, textarea::placeholder { color: var(--text-dim); }
+  textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+  select { cursor: pointer; }
+  select option { background: var(--surface2); }
+
+  .field { margin-bottom: 1.1rem; }
+
+  .row { display: flex; gap: 12px; }
+  .row .field { flex: 1; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--font);
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border-hover); }
+
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  /* CHIPS */
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip {
+    padding: 5px 13px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    background: none;
+    font-family: var(--font);
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--border-hover); color: var(--text); }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-text); }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .result-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .result-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+  .badge-red { background: var(--accent-soft); color: var(--accent-text); }
+  .badge-green { background: var(--green-soft); color: var(--green); }
+  .badge-blue { background: var(--blue-soft); color: var(--blue); }
+  .badge-yellow { background: var(--yellow-soft); color: var(--yellow); }
+
+  .result-title-text {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--text);
+  }
+
+  .result-desc-text {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.75;
+    white-space: pre-wrap;
+  }
+
+  .char-count {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    margin-top: 5px;
+  }
+
+  .copy-btn {
+    position: absolute;
+    top: 12px; right: 12px;
+    font-size: 11px;
+    padding: 3px 9px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: var(--font);
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--border-hover); }
+
+  /* TAGS */
+  .tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 12px;
+    padding: 4px 10px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text-muted);
+    font-family: var(--mono);
+  }
+
+  /* COMPETITOR CARD */
+  .comp-item {
+    display: flex;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s;
+  }
+  .comp-item:hover { border-color: var(--border-hover); }
+  .comp-thumb {
+    width: 90px; height: 52px;
+    border-radius: 5px;
+    background: var(--surface3);
+    flex-shrink: 0;
+    object-fit: cover;
+  }
+  .comp-body { flex: 1; min-width: 0; }
+  .comp-title-text {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .comp-meta { font-size: 12px; color: var(--text-muted); }
+
+  /* HISTORY */
+  .hist-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s;
+  }
+  .hist-item:hover { border-color: var(--border-hover); }
+  .hist-time { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+  .hist-topic { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .hist-title { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+  .del-btn { font-size: 11px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: var(--font); }
+  .del-btn:hover { color: var(--accent-text); }
+
+  /* STATUS MESSAGES */
+  .msg {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    margin-bottom: 1rem;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg-error { background: rgba(255,59,59,0.1); border: 1px solid rgba(255,59,59,0.25); color: #ff8080; }
+  .msg-success { background: var(--green-soft); border: 1px solid rgba(34,197,94,0.2); color: var(--green); }
+
+  /* SPINNER */
+  .spinner {
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-family: var(--mono);
+  }
+
+  /* CONFIG BLOCK */
+  .config-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .config-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .api-badge {
+    font-size: 10px;
+    font-family: var(--mono);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .api-badge.ok { background: var(--green-soft); color: var(--green); }
+  .api-badge.err { background: var(--accent-soft); color: var(--accent-text); }
+  .api-badge.none { background: var(--surface3); color: var(--text-dim); }
+
+  .link-small {
+    font-size: 12px;
+    color: var(--blue);
+    text-decoration: none;
+    opacity: 0.8;
+  }
+  .link-small:hover { opacity: 1; }
+
+  /* CHANNEL PREVIEW */
+  .channel-prev {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-top: 10px;
+  }
+  .ch-avatar {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600;
+    color: var(--accent-text);
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+  .ch-info { flex: 1; }
+  .ch-name { font-size: 14px; font-weight: 600; }
+  .ch-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  /* EMPTY STATE */
+  .empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-dim);
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; }
+
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  /* PATTERN ANALYSIS */
+  .pattern-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+  /* MOBILE */
+  @media (max-width: 680px) {
+    .sidebar { display: none; }
+    .main { padding: 1.25rem; }
+    .row { flex-direction: column; }
+    header { padding: 0 1rem; }
+    .header-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+    </div>
+    <span>YTGen</span>
+  </div>
+  <div class="header-right">
+    <div class="api-pill" id="pill-gemini" onclick="switchTo('config')">
+      <div class="dot" id="dot-gemini"></div>
+      <span>Gemini</span>
+    </div>
+    <div class="api-pill" id="pill-yt" onclick="switchTo('config')">
+      <div class="dot" id="dot-yt"></div>
+      <span>YouTube API</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar">
+    <button class="nav-item active" onclick="switchTo('generate')" data-tab="generate">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      Gerar
+    </button>
+    <button class="nav-item" onclick="switchTo('competitors')" data-tab="competitors">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Concorrentes
+    </button>
+    <button class="nav-item" onclick="switchTo('channel')" data-tab="channel">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Meu canal
+    </button>
+    <div class="sidebar-divider"></div>
+    <button class="nav-item" onclick="switchTo('history')" data-tab="history">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Histórico
+    </button>
+    <button class="nav-item" onclick="switchTo('config')" data-tab="config">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2M19.07 19.07l-1.41-1.41M4.93 19.07l1.41-1.41"/></svg>
+      Configurações
+    </button>
+  </nav>
+
+  <main class="main">
+
+    <!-- GERAR -->
+    <div id="tab-generate" class="panel active">
+      <div class="panel-header">
+        <h1 class="panel-title">Gerar conteúdo</h1>
+        <p class="panel-sub">Títulos, descrição e tags otimizados via Gemini AI</p>
+      </div>
+      <div id="gen-err" class="msg msg-error"></div>
+      <div id="gen-ok" class="msg msg-success"></div>
+
+      <div class="field">
+        <label>Tema do vídeo</label>
+        <textarea id="gen-topic" placeholder="Descreva o assunto do seu vídeo com detalhes...&#10;Ex: Como montar um PC gamer por menos de R$3.000 em 2025, focado em jogos como Valorant e CS2"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Nicho / categoria</label>
+          <input id="gen-niche" type="text" placeholder="Ex: tecnologia, finanças, culinária..." />
+        </div>
+        <div class="field">
+          <label>Idioma</label>
+          <select id="gen-lang">
+            <option value="pt-BR">Português (BR)</option>
+            <option value="en">Inglês</option>
+            <option value="es">Espanhol</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Estilos de título</label>
+        <div class="chips">
+          <button class="chip on" onclick="toggleChip(this,'clickbait')">Clickbait</button>
+          <button class="chip on" onclick="toggleChip(this,'seo')">SEO</button>
+          <button class="chip" onclick="toggleChip(this,'informativo')">Informativo</button>
+          <button class="chip" onclick="toggleChip(this,'lista')">Lista / Top X</button>
+          <button class="chip" onclick="toggleChip(this,'tutorial')">Tutorial</button>
+          <button class="chip" onclick="toggleChip(this,'curiosidade')">Curiosidade</button>
+          <button class="chip" onclick="toggleChip(this,'storytelling')">Storytelling</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Palavras-chave extras (opcional)</label>
+        <input id="gen-kw" type="text" placeholder="Separe por vírgula: iniciante, rápido, 2025..." />
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btn-gen" onclick="generate()">
+          <div class="spinner" id="sp-gen"></div>
+          Gerar agora
+        </button>
+        <button class="btn btn-ghost" onclick="clearGen()">Limpar</button>
+      </div>
+
+      <div id="gen-results" style="display:none;">
+        <hr class="div">
+        <p class="section-label">Títulos gerados</p>
+        <div id="titles-out"></div>
+
+        <hr class="div">
+        <p class="section-label">Descrição</p>
+        <div id="desc-out"></div>
+
+        <hr class="div">
+        <p class="section-label">Tags sugeridas</p>
+        <div id="tags-out"></div>
+      </div>
+    </div>
+
+    <!-- CONCORRENTES -->
+    <div id="tab-competitors" class="panel">
+      <div class="panel-header">
+        <h1 class="panel-title">Análise de concorrentes</h1>
+        <p class="panel-sub">Vídeos mais populares do nicho + padrões de títulos identificados por IA</p>
+      </div>
+      <div id="comp-err" class="msg msg-error"></div>
+
+      <div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:1.5rem;">
+        <div style="flex:1;">
+          <label>Buscar por palavra-chave</label>
+          <input id="comp-q" type="text" placeholder="Ex: como investir com pouco dinheiro" />
+        </div>
+        <button class="btn btn-primary" id="btn-comp" onclick="searchComp()" style="flex-shrink:0;">
+          <div class="spinner" id="sp-comp"></div>
+          Buscar
+        </button>
+      </div>
+
+      <div id="comp-out">
+        <div class="empty">
+          <div class="empty-icon">🔍</div>
+          <p class="empty-text">Busque uma palavra-chave para ver os vídeos mais populares do nicho</p>
+        </div>
+      </div>
+
+      <div id="comp-analysis" style="display:none;">
+        <hr class="div">
+        <p class="section-label">Padrões identificados pela IA</p>
+        <div id="patterns-out"></div>
+      </div>
+    </div>
+
+    <!-- MEU CANAL -->
+    <div id="tab-channel" class="panel">
+      <div class="panel-header">
+        <h1 class="panel-title">Meu canal</h1>
+        <p class="panel-sub">Salve os dados do seu canal para personalizar as gerações</p>
+      </div>
+      <div id="ch-err" class="msg msg-error"></div>
+      <div id="ch-ok" class="msg msg-success"></div>
+
+      <div class="field">
+        <label>Buscar canal pelo @handle ou ID</label>
+        <div style="display:flex; gap:8px;">
+          <input id="ch-url" type="text" placeholder="@MeuCanal ou UCxxxxxxxx..." />
+          <button class="btn btn-ghost" id="btn-ch" onclick="fetchCh()" style="flex-shrink:0;">
+            <div class="spinner" id="sp-ch" style="border-top-color:var(--text-muted);"></div>
+            Buscar
+          </button>
+        </div>
+      </div>
+
+      <div id="ch-prev"></div>
+      <hr class="div">
+
+      <div class="row">
+        <div class="field">
+          <label>Nome do canal</label>
+          <input id="ch-name" type="text" placeholder="Nome no YouTube" />
+        </div>
+        <div class="field">
+          <label>Nicho principal</label>
+          <input id="ch-niche" type="text" placeholder="finanças, games, culinária..." />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>Tom de voz</label>
+          <select id="ch-tone">
+            <option value="">Selecione...</option>
+            <option value="informal e descontraído">Informal e descontraído</option>
+            <option value="profissional e técnico">Profissional e técnico</option>
+            <option value="educacional e didático">Educacional e didático</option>
+            <option value="motivacional e energético">Motivacional e energético</option>
+            <option value="humorístico">Humorístico</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Público-alvo</label>
+          <input id="ch-audience" type="text" placeholder="Ex: jovens 18-25 interessados em investimentos" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Sobre o canal</label>
+        <textarea id="ch-about" placeholder="Descreva brevemente do que trata o seu canal..."></textarea>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveCh()">Salvar canal</button>
+    </div>
+
+    <!-- HISTÓRICO -->
+    <div id="tab-history" class="panel">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h1 class="panel-title">Histórico</h1>
+          <p class="panel-sub">Últimas gerações salvas localmente</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearHist()">Limpar tudo</button>
+      </div>
+      <div id="hist-out"></div>
+    </div>
+
+    <!-- CONFIGURAÇÕES -->
+    <div id="tab-config" class="panel">
+      <div class="panel-header">
+        <h1 class="panel-title">Configurações</h1>
+        <p class="panel-sub">Configure suas chaves de API para usar o app</p>
+      </div>
+      <div id="cfg-ok" class="msg msg-success"></div>
+
+      <div class="config-card">
+        <div class="config-card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Gemini API
+          <span class="api-badge none" id="badge-gemini">não configurada</span>
+        </div>
+        <div class="field">
+          <label>Chave de API</label>
+          <input id="cfg-gemini" type="password" placeholder="AIzaSy..." />
+        </div>
+        <div class="field">
+          <label>Modelo</label>
+          <select id="cfg-model">
+            <option value="gemini-2.0-flash">gemini-2.0-flash — rápido e gratuito (recomendado)</option>
+            <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+            <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+          </select>
+        </div>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-small">→ Obter chave gratuita no Google AI Studio</a>
+      </div>
+
+      <div class="config-card">
+        <div class="config-card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="#ff0000"><path d="M10 15l5.19-3L10 9v6zm11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/></svg>
+          YouTube Data API v3
+          <span class="api-badge none" id="badge-yt">não configurada</span>
+        </div>
+        <div class="field">
+          <label>Chave de API</label>
+          <input id="cfg-yt" type="password" placeholder="AIzaSy..." />
+        </div>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:8px;">Limite gratuito: 10.000 unidades/dia · Cada busca consome ~100 unidades</p>
+        <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" class="link-small">→ Ativar YouTube Data API v3 no Google Cloud Console</a>
+      </div>
+
+      <button class="btn btn-primary" onclick="saveCfg()">Salvar configurações</button>
+      <p style="font-size:12px; color:var(--text-dim); margin-top:10px;">As chaves ficam salvas apenas no seu navegador (localStorage). Nenhum dado é enviado a servidores externos.</p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const S = {
+  styles: ['clickbait','seo'],
+  cfg: {},
+  channel: {},
+  history: []
+};
+
+function boot() {
+  try {
+    S.cfg = JSON.parse(localStorage.getItem('ytgen_cfg') || '{}');
+    S.channel = JSON.parse(localStorage.getItem('ytgen_ch') || '{}');
+    S.history = JSON.parse(localStorage.getItem('ytgen_hist') || '[]');
+  } catch(e) {}
+  applyCfg(); applyChannel(); renderHist();
+}
+
+function applyCfg() {
+  if (S.cfg.gemini) { $('cfg-gemini').value = S.cfg.gemini; setStatus('gemini', true); }
+  if (S.cfg.yt) { $('cfg-yt').value = S.cfg.yt; setStatus('yt', true); }
+  if (S.cfg.model) $('cfg-model').value = S.cfg.model;
+}
+
+function applyChannel() {
+  const c = S.channel;
+  if (c.url) $('ch-url').value = c.url;
+  if (c.name) $('ch-name').value = c.name;
+  if (c.niche) $('ch-niche').value = c.niche;
+  if (c.tone) $('ch-tone').value = c.tone;
+  if (c.audience) $('ch-audience').value = c.audience;
+  if (c.about) $('ch-about').value = c.about;
+  if (c.name) showChPreview(c);
+}
+
+function setStatus(api, ok) {
+  const dot = document.getElementById('dot-' + api);
+  const badge = document.getElementById('badge-' + api);
+  if (dot) { dot.className = 'dot ' + (ok ? 'ok' : 'err'); }
+  if (badge) { badge.className = 'api-badge ' + (ok ? 'ok' : 'err'); badge.textContent = ok ? 'configurada' : 'inválida'; }
+}
+
+function saveCfg() {
+  S.cfg = {
+    gemini: $('cfg-gemini').value.trim(),
+    yt: $('cfg-yt').value.trim(),
+    model: $('cfg-model').value
+  };
+  localStorage.setItem('ytgen_cfg', JSON.stringify(S.cfg));
+  if (S.cfg.gemini) setStatus('gemini', true);
+  if (S.cfg.yt) setStatus('yt', true);
+  showMsg('cfg-ok', '✓ Configurações salvas com sucesso!');
+}
+
+function saveCh() {
+  S.channel = {
+    url: $('ch-url').value.trim(),
+    name: $('ch-name').value.trim(),
+    niche: $('ch-niche').value.trim(),
+    tone: $('ch-tone').value,
+    audience: $('ch-audience').value.trim(),
+    about: $('ch-about').value.trim()
+  };
+  localStorage.setItem('ytgen_ch', JSON.stringify(S.channel));
+  showMsg('ch-ok', '✓ Canal salvo! As gerações usarão estas informações.');
+  if (S.channel.name) showChPreview(S.channel);
+}
+
+function showChPreview(c) {
+  const init = (c.name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
+  $('ch-prev').innerHTML = `<div class="channel-prev">
+    <div class="ch-avatar">${init}</div>
+    <div class="ch-info">
+      <p class="ch-name">${esc(c.name || '')}</p>
+      <p class="ch-sub">${esc(c.niche || 'Nicho não definido')}${c.tone ? ' · ' + esc(c.tone) : ''}</p>
+    </div>
+    <span class="result-badge badge-green">salvo</span>
+  </div>`;
+}
+
+async function fetchCh() {
+  const url = $('ch-url').value.trim();
+  if (!url) { showMsg('ch-err', 'Informe o @handle ou ID do canal.'); return; }
+  if (!S.cfg.yt) { showMsg('ch-err', 'Configure a YouTube API Key em Configurações.'); return; }
+  loading('sp-ch', 'btn-ch', true);
+  try {
+    const handle = url.startsWith('@') ? url.replace('@','') : null;
+    const ep = handle
+      ? `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=${encodeURIComponent(handle)}&key=${S.cfg.yt}`
+      : `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${url}&key=${S.cfg.yt}`;
+    const d = await apiFetch(ep);
+    if (!d.items?.length) throw new Error('Canal não encontrado.');
+    const ch = d.items[0];
+    const subs = parseInt(ch.statistics.subscriberCount || 0).toLocaleString('pt-BR');
+    $('ch-name').value = ch.snippet.title;
+    $('ch-about').value = ch.snippet.description.slice(0, 300);
+    $('ch-prev').innerHTML = `<div class="channel-prev">
+      <div class="ch-avatar">${ch.snippet.title.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}</div>
+      <div class="ch-info">
+        <p class="ch-name">${esc(ch.snippet.title)}</p>
+        <p class="ch-sub">${subs} inscritos</p>
+      </div>
+      <span class="result-badge badge-blue">encontrado</span>
+    </div>`;
+    showMsg('ch-ok', '✓ Canal encontrado! Complete as infos e salve.');
+  } catch(e) { showMsg('ch-err', 'Erro: ' + e.message); }
+  loading('sp-ch', 'btn-ch', false);
+}
+
+function toggleChip(el, s) {
+  if (el.classList.contains('on')) {
+    el.classList.remove('on');
+    S.styles = S.styles.filter(x => x !== s);
+  } else {
+    el.classList.add('on');
+    S.styles.push(s);
+  }
+}
+
+async function generate() {
+  const topic = $('gen-topic').value.trim();
+  const niche = $('gen-niche').value.trim();
+  const lang = $('gen-lang').value;
+  const kw = $('gen-kw').value.trim();
+  hideMsg('gen-err'); hideMsg('gen-ok');
+  if (!topic) { showMsg('gen-err', 'Informe o tema do vídeo.'); return; }
+  if (!S.cfg.gemini) { showMsg('gen-err', 'Configure a Gemini API Key em Configurações.'); return; }
+
+  loading('sp-gen', 'btn-gen', true);
+
+  const c = S.channel;
+  const chCtx = c.name ? `\nCanal: ${c.name}\nNicho do canal: ${c.niche || '-'}\nTom: ${c.tone || '-'}\nPúblico: ${c.audience || '-'}` : '';
+
+  const prompt = `Você é especialista em SEO para YouTube. Gere conteúdo otimizado.
+
+Tema: ${topic}
+Nicho: ${niche || 'geral'}
+Idioma: ${lang}
+Estilos desejados: ${S.styles.length ? S.styles.join(', ') : 'seo'}
+Palavras-chave extras: ${kw || 'nenhuma'}${chCtx}
+
+Responda SOMENTE em JSON válido sem markdown:
+{"titles":[{"style":"nome","title":"texto"},{"style":"nome","title":"texto"},{"style":"nome","title":"texto"},{"style":"nome","title":"texto"},{"style":"nome","title":"texto"}],"description":"descrição completa com hashtags e CTA, mínimo 150 palavras","tags":["tag1","tag2","tag3","tag4","tag5","tag6","tag7","tag8","tag9","tag10"]}`;
+
+  try {
+    const d = await gemini(prompt);
+    let text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    text = text.replace(/```json|```/g,'').trim();
+    const r = JSON.parse(text);
+    renderGen(r);
+    addHist(topic, r);
+    showMsg('gen-ok', '✓ Conteúdo gerado com sucesso!');
+  } catch(e) {
+    showMsg('gen-err', 'Erro Gemini: ' + e.message);
+  }
+  loading('sp-gen', 'btn-gen', false);
+}
+
+function renderGen(r) {
+  $('gen-results').style.display = 'block';
+  const colors = ['badge-red','badge-blue','badge-yellow','badge-green','badge-red'];
+  $('titles-out').innerHTML = r.titles.map((t,i) => `
+    <div class="result-block">
+      <button class="copy-btn" onclick="cp(this,'${escAttr(t.title)}')">copiar</button>
+      <span class="result-badge ${colors[i%5]}">${esc(t.style)}</span>
+      <p class="result-title-text">${esc(t.title)}</p>
+      <p class="char-count">${t.title.length} caracteres</p>
+    </div>`).join('');
+
+  $('desc-out').innerHTML = `<div class="result-block">
+    <button class="copy-btn" onclick="cp(this,'${escAttr(r.description)}')">copiar</button>
+    <p class="result-desc-text">${esc(r.description)}</p>
+    <p class="char-count">${r.description.length} caracteres</p>
+  </div>`;
+
+  $('tags-out').innerHTML = `<div class="tags-wrap">${r.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+  <div style="margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="cp(this,'${escAttr(r.tags.join(', '))}')">copiar todas as tags</button></div>`;
+}
+
+function clearGen() {
+  $('gen-topic').value = '';
+  $('gen-niche').value = '';
+  $('gen-kw').value = '';
+  $('gen-results').style.display = 'none';
+  hideMsg('gen-err'); hideMsg('gen-ok');
+}
+
+async function searchComp() {
+  const q = $('comp-q').value.trim();
+  hideMsg('comp-err');
+  if (!q) { showMsg('comp-err', 'Informe uma palavra-chave.'); return; }
+  if (!S.cfg.yt) { showMsg('comp-err', 'Configure a YouTube API Key em Configurações.'); return; }
+
+  loading('sp-comp', 'btn-comp', true);
+  try {
+    const d = await apiFetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&order=viewCount&maxResults=10&key=${S.cfg.yt}`);
+    const items = d.items || [];
+    const ids = items.map(i => i.id.videoId).join(',');
+    let stats = {};
+    if (ids) {
+      const sd = await apiFetch(`https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${ids}&key=${S.cfg.yt}`);
+      (sd.items||[]).forEach(v => { stats[v.id] = v.statistics; });
+    }
+    if (!items.length) {
+      $('comp-out').innerHTML = '<div class="empty"><p class="empty-text">Nenhum resultado encontrado.</p></div>';
+    } else {
+      $('comp-out').innerHTML = items.map(item => {
+        const s = stats[item.id.videoId] || {};
+        const views = s.viewCount ? parseInt(s.viewCount).toLocaleString('pt-BR') : '—';
+        const thumb = item.snippet.thumbnails?.medium?.url || '';
+        return `<div class="comp-item">
+          ${thumb ? `<img class="comp-thumb" src="${thumb}" alt="" />` : '<div class="comp-thumb"></div>'}
+          <div class="comp-body">
+            <p class="comp-title-text">${esc(item.snippet.title)}</p>
+            <p class="comp-meta">${esc(item.snippet.channelTitle)} · ${views} views</p>
+          </div>
+        </div>`;
+      }).join('');
+      if (S.cfg.gemini) analyzePatterns(items, q);
+    }
+  } catch(e) { showMsg('comp-err', 'Erro: ' + e.message); }
+  loading('sp-comp', 'btn-comp', false);
+}
+
+async function analyzePatterns(items, q) {
+  const titles = items.map(i => i.snippet.title).join('\n');
+  const prompt = `Analise estes títulos do YouTube sobre "${q}" e retorne SOMENTE JSON sem markdown:
+{"patterns":["padrão 1","padrão 2","padrão 3"],"commonWords":["p1","p2","p3","p4","p5"],"tip":"dica principal"}
+Títulos:\n${titles}`;
+  try {
+    const d = await gemini(prompt);
+    let text = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    text = text.replace(/```json|```/g,'').trim();
+    const r = JSON.parse(text);
+    $('comp-analysis').style.display = 'block';
+    $('patterns-out').innerHTML = `
+      <div class="pattern-box"><strong style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Padrões</strong><br><br>${r.patterns.map(p=>`· ${esc(p)}`).join('<br>')}</div>
+      <div class="pattern-box"><strong style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);">Palavras comuns</strong><br><br><div class="tags-wrap" style="margin-top:8px;">${r.commonWords.map(w=>`<span class="tag">${esc(w)}</span>`).join('')}</div></div>
+      <div class="pattern-box" style="border-color:rgba(255,59,59,0.2);"><strong style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent-text);">Dica principal</strong><br><br>${esc(r.tip)}</div>`;
+  } catch(e) {}
+}
+
+function addHist(topic, r) {
+  S.history.unshift({ id: Date.now(), date: new Date().toLocaleDateString('pt-BR'), time: new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}), topic, titles: r.titles, description: r.description, tags: r.tags });
+  if (S.history.length > 50) S.history = S.history.slice(0,50);
+  localStorage.setItem('ytgen_hist', JSON.stringify(S.history));
+  renderHist();
+}
+
+function renderHist() {
+  if (!S.history.length) {
+    $('hist-out').innerHTML = '<div class="empty"><div class="empty-icon">🕐</div><p class="empty-text">Nenhuma geração salva ainda</p></div>';
+    return;
+  }
+  $('hist-out').innerHTML = S.history.map(h => `
+    <div class="hist-item">
+      <div class="hist-time">
+        <span>${h.date} às ${h.time}</span>
+        <button class="del-btn" onclick="delHist(${h.id})">remover</button>
+      </div>
+      <p class="hist-topic">${esc(h.topic)}</p>
+      <p class="hist-title">${esc(h.titles?.[0]?.title || '')}</p>
+      <button class="btn btn-ghost btn-sm" onclick="loadHist(${h.id})">↑ Carregar</button>
+    </div>`).join('');
+}
+
+function delHist(id) {
+  S.history = S.history.filter(h => h.id !== id);
+  localStorage.setItem('ytgen_hist', JSON.stringify(S.history));
+  renderHist();
+}
+
+function loadHist(id) {
+  const h = S.history.find(x => x.id === id);
+  if (!h) return;
+  $('gen-topic').value = h.topic;
+  renderGen(h);
+  switchTo('generate');
+}
+
+function clearHist() {
+  if (!confirm('Limpar todo o histórico?')) return;
+  S.history = [];
+  localStorage.setItem('ytgen_hist', '[]');
+  renderHist();
+}
+
+function switchTo(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`[data-tab="${name}"]`)?.classList.add('active');
+}
+
+/* UTILS */
+function $(id) { return document.getElementById(id); }
+
+async function gemini(prompt) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${S.cfg.model||'gemini-2.0-flash'}:generateContent?key=${S.cfg.gemini}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message);
+  return d;
+}
+
+async function apiFetch(url) {
+  const res = await fetch(url);
+  const d = await res.json();
+  if (d.error) throw new Error(d.error.message);
+  return d;
+}
+
+function loading(spId, btnId, on) {
+  const sp = $(spId), btn = $(btnId);
+  if (sp) sp.style.display = on ? 'block' : 'none';
+  if (btn) btn.disabled = on;
+}
+
+function showMsg(id, msg) { const el = $(id); if (el) { el.style.display='block'; el.textContent=msg; } }
+function hideMsg(id) { const el = $(id); if (el) el.style.display='none'; }
+
+function cp(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = 'copiado ✓';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  });
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'").replace(/\n/g,' '); }
+
+boot();
+</script>
+</body>
+</html>
